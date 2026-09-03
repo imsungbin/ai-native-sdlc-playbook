@@ -1,21 +1,38 @@
 # ai-native-sdlc-playbook
 
-Unofficial, faithful, runnable companion to
-[The AI-Native SDLC playbook](https://claude.com/blog/the-ai-native-sdlc-playbook)
-by Louis Claxton (Anthropic), August 21, 2026. It contains the article's files
-verbatim, templates for the artifacts the article names, one verification
-command, and this repository's own record of running the loop. Nothing is added
-on top of the article.
+**The AI-Native SDLC playbook, as a repository you can clone and run.**
 
-Not affiliated with or endorsed by Anthropic.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Source article](https://img.shields.io/badge/article-claude.com-000000.svg)](https://claude.com/blog/the-ai-native-sdlc-playbook)
+[![Verified by](https://img.shields.io/badge/verified%20by-make%20test-success.svg)](#verification)
+
+Anthropic's [The AI-Native SDLC playbook](https://claude.com/blog/the-ai-native-sdlc-playbook)
+(Louis Claxton, August 21, 2026) describes a six-stage loop where every stage
+ends by committing a file that the next stage reads: `intent.md`, `spec.md`,
+`plan.md`, the diff and its tests, the PR with its review findings, and a
+breached control band that writes the next `intent.md`. The article prints the
+config files but ships no repository.
+
+This is that repository. Every code block from the article is here, verbatim,
+at the path the article names. The blanks the article leaves (templates, a
+single test command, a minimal eval suite) are filled with the smallest thing
+that lets the article's own files run unmodified. The repo was built by running
+its own bootstrap through the loop, so the git history is a real worked
+example, not a fiction.
+
+Unofficial. Not affiliated with or endorsed by Anthropic.
 
 ## The loop
 
-The article makes each stage end by committing an artifact that the next stage
-reads: an accepted `intent.md` triggers the requirements and design pass, an
-approved `spec.md` triggers plan mode, `plan.md` is checked against the diff and
-its tests, the PR carries the review findings, and a breached control band in
-production writes the next `intent.md`. The chain of commits is the audit trail.
+```mermaid
+flowchart LR
+    P["1 Plan<br/>intent.md"] --> D["2 Design<br/>spec.md"]
+    D --> B["3 Build<br/>plan.md + CLAUDE.md<br/>skills, hooks, agents"]
+    B --> T["4 Test<br/>make test, evals"]
+    T --> Dp["5 Deploy<br/>REVIEW.md, approval-gate hook"]
+    Dp --> M["6 Maintain<br/>bands.yaml"]
+    M -- "breach writes the next intent.md" --> P
+```
 
 | Stage | Artifact | Where it lives here |
 | --- | --- | --- |
@@ -26,47 +43,95 @@ production writes the next `intent.md`. The chain of commits is the audit trail.
 | Deploy | REVIEW.md, approval-gate hook | REVIEW.md, .claude/settings.json, .claude/hooks/production-gate.sh |
 | Maintain | bands.yaml, intent.md again | bands.yaml, .claude/skills/intent-template/ |
 
+The chain of commits is the audit trail: who asked for what, what the agent
+produced, who approved it.
+
 ## Quickstart
 
-1. Clone the repository, then run the verification command.
+```
+git clone https://github.com/imsungbin/ai-native-sdlc-playbook.git
+cd ai-native-sdlc-playbook
+make test
+```
+
+Expected last line: `validate: all checks passed`.
+
+Then open Claude Code in the directory. `CLAUDE.md`, both skills, the
+`verifier` agent, the `/spec` command, and the production-gate hook are all
+live from the first session.
+
+## What is inside
+
+```
+.
+├── CLAUDE.md                          conventions, commands, verification block
+├── REVIEW.md                          review passes, Important vs nit, nit cap
+├── bands.yaml                         control-band tiers for Stage 6
+├── .claude/
+│   ├── settings.json                  PreToolUse hook wiring
+│   ├── hooks/production-gate.sh       blocks production deploys without approval
+│   ├── skills/secure-api-review/      the article's example policy skill
+│   ├── skills/intent-template/        writes intent.md from templates/intent.md
+│   ├── agents/verifier.md             the article's example subagent
+│   └── commands/spec.md               the article's Stage 2 prompt as /spec
+├── .github/workflows/agent-evals.yml  continuous evals, verbatim
+├── evals/                             one eval and check.sh so the workflow runs
+├── templates/                         intent.md, spec.md, plan.md skeletons
+├── intent/                            this repo's own loop record (two changes)
+├── examples/article/                  the article's illustrations, for reference
+├── AGENTS.md, .agents/skills          symlinks for non-Claude coding agents
+└── Makefile, scripts/validate.sh      the single feedback-loop command
+```
+
+## Run one change through the loop
+
+1. **Plan.** In Claude Code, ask for an intent. The `intent-template` skill
+   triggers and writes `intent/<NNNN>-<slug>/intent.md`. Review it, then commit
+   it on its own.
+2. **Design.** Run the slash command, review the result, commit `spec.md`.
 
    ```
-   make test
+   /spec intent/0001-your-change/intent.md
    ```
 
-   Expected last line: `validate: all checks passed`.
+3. **Build.** Start Claude Code in plan mode, give it `intent.md` and
+   `spec.md`, iterate until the plan stands on its own, commit `plan.md`, then
+   implement.
+4. **Test.** Run `make test` before calling anything done. The verification
+   block in `CLAUDE.md` enforces this by instruction.
+5. **Deploy.** `REVIEW.md` drives the review passes. `production-gate.sh`
+   blocks any Bash command containing both "deploy" and "production" unless
+   `RELEASE_APPROVAL` is set.
+6. **Maintain.** `bands.yaml` holds the response tiers. Your detection script
+   (not shipped here, see below) writes the next `intent.md` through the
+   `intent-template` skill.
 
-2. Copy into your own project: `CLAUDE.md` (rewrite it for your codebase, keeping
-   the article's structure), `REVIEW.md`, `bands.yaml`, `.claude/`, `templates/`,
-   `evals/`, and the `Makefile` target or an equivalent single test command.
+## Adopt it in your own repository
 
-3. Run one change through the loop.
-
-   - Stage 1: in Claude Code, ask for an intent. The `intent-template` skill
-     triggers. Review what it wrote, then commit `intent.md` on its own.
-   - Stage 2: run the slash command, review the result, then commit `spec.md`.
-
-     ```
-     /spec intent/0001-your-change/intent.md
-     ```
-
-   - Stage 3: start Claude Code in plan mode, give it `intent.md` and `spec.md`,
-     iterate until the plan stands on its own, commit `plan.md`, then implement.
-   - Stage 4: run `make test` before calling anything done. The verification
-     block in `CLAUDE.md` enforces this by instruction.
-   - Stage 5: `REVIEW.md` drives the review passes. `production-gate.sh` blocks
-     any Bash command containing both "deploy" and "production" unless
-     `RELEASE_APPROVAL` is set.
-   - Stage 6: `bands.yaml` holds the response tiers. Your detection script (not
-     shipped here, see below) writes the next `intent.md` through the
-     `intent-template` skill.
-
-4. Set the `ANTHROPIC_API_KEY` repository secret, or disable the "Agent evals"
+1. Copy `CLAUDE.md` (rewrite it for your codebase, keep the article's
+   structure), `REVIEW.md`, `bands.yaml`, `.claude/`, `templates/`, `evals/`,
+   and the `Makefile` target or an equivalent single test command.
+2. Walk the [file map](#file-map). Each row says what an adopter replaces.
+3. Set the `ANTHROPIC_API_KEY` repository secret, or disable the "Agent evals"
    workflow. Its nightly schedule fails without the secret.
-5. If you use a coding agent other than Claude Code, it finds the same
-   instructions at `AGENTS.md` and the same skills under `.agents/skills/`; both
-   are symbolic links. On Windows, set `git config core.symlinks true` before
-   cloning, or they check out as text files.
+4. If you use a coding agent other than Claude Code, it finds the same
+   instructions at `AGENTS.md` and the same skills under `.agents/skills/`;
+   both are symbolic links. On Windows, set `git config core.symlinks true`
+   before cloning, or they check out as text files.
+
+## This repository's own loop record
+
+`intent/0001-bootstrap-playbook-repo/` is the real record of building this
+repository, not a worked fiction. The three files were committed in stage order,
+one commit each, before the repository they describe was finished.
+
+```
+git log --reverse --format='%h %ad %s' --date=short
+```
+
+The first three commits are the intent, the spec, and the plan.
+`intent/0002-multi-agent-entry-points/` is the second change run through the
+same loop, again committed intent, spec, plan, then build.
 
 ## File map
 
@@ -104,22 +169,8 @@ production writes the next `intent.md`. The chain of commits is the audit trail.
 | examples/article/intent.md | Article, verbatim | Reference only; the article's fictional example. |
 | examples/article/plan.md | Article, verbatim | Reference only; the article's fictional example. |
 | examples/article/CLAUDE.md | Article, verbatim | Reference only; the article's payments-service example plus its verification block. |
-| examples/article/managed-settings.json | Article, verbatim | Reference only; managed settings are deployed by MDM or the admin console, not from a repository. |
+| examples/article/managed-settings.json | Article, same JSON re-indented | Reference only; managed settings are deployed by MDM or the admin console, not from a repository. |
 | examples/article/triage-step.yml | Article, verbatim | Reference only; the article's pipeline triage step. |
-
-## This repository's own loop record
-
-`intent/0001-bootstrap-playbook-repo/` is the real record of building this
-repository, not a worked fiction. The three files were committed in stage order,
-one commit each, before the repository they describe was finished.
-
-```
-git log --reverse --format='%h %ad %s' --date=short
-```
-
-The first three commits are the intent, the spec, and the plan.
-`intent/0002-multi-agent-entry-points/` is the second change run through the
-same loop, again committed intent, spec, plan, then build.
 
 ## Author's calls (decisions the article does not make)
 
@@ -204,6 +255,17 @@ states what each must do.
 
 It prints one line per check and ends with `validate: all checks passed`. Any
 failure prints `FAIL:` and exits 1.
+
+## Contributing
+
+The bar for a change is the article. If the article describes it and it can
+live in a repository, it belongs here at the path the article names. If the
+article does not describe it, it goes under "Author's calls" with the reason,
+or it does not go in. Run a change through the loop the way the two existing
+`intent/` directories did, and run `make test` before opening a PR.
+
+If this saved you an afternoon of copying code blocks out of a blog post, a
+star helps the next person find it.
 
 ## Attribution and license
 
