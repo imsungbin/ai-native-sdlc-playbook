@@ -1,27 +1,29 @@
 # ai-native-sdlc-playbook
 
-**The AI-Native SDLC playbook, as a repository you can clone and run.**
+**The AI-Native SDLC playbook: the article's files verbatim and hash-checked, the pieces it describes implemented, installable into your repo as a Claude Code plugin.**
 
+[![Test](https://github.com/imsungbin/ai-native-sdlc-playbook/actions/workflows/test.yml/badge.svg)](https://github.com/imsungbin/ai-native-sdlc-playbook/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Source article](https://img.shields.io/badge/article-claude.com-000000.svg)](https://claude.com/blog/the-ai-native-sdlc-playbook)
-[![Verified by](https://img.shields.io/badge/verified%20by-make%20test-success.svg)](#verification)
+[![Plugin](https://img.shields.io/badge/claude%20code-plugin-7c3aed.svg)](#install-it-in-your-own-repository)
 
 Anthropic's [The AI-Native SDLC playbook](https://claude.com/blog/the-ai-native-sdlc-playbook)
 (Louis Claxton, August 21, 2026) describes a six-stage loop where every stage
 ends by committing a file that the next stage reads: `intent.md`, `spec.md`,
 `plan.md`, the diff and its tests, the PR with its review findings, and a
-breached control band that writes the next `intent.md`. The article prints the
-config files but ships no repository.
+breached control band that writes the next `intent.md`. The article prints
+some of the files and describes the rest in prose. It ships no repository.
 
-This is that repository. Every code block from the article is here, verbatim,
-at the path the article names. The blanks the article leaves (templates, a
-single test command, a minimal eval suite) are filled with the smallest thing
-that lets the article's own files run unmodified. The repo was built by running
-its own bootstrap through the loop, and the stage-by-stage commit record is
-kept on the [`history`](https://github.com/imsungbin/ai-native-sdlc-playbook/commits/history)
-branch, so the worked example is real, not a fiction.
+This is that repository, in three layers:
 
-Unofficial. Not affiliated with or endorsed by Anthropic.
+| Layer | What | Guarantee |
+| --- | --- | --- |
+| **Verbatim** | Every code block the article prints, at the path the article names | `verbatim.lock` holds a sha256 per file; `make test` fails if one byte changes |
+| **Completed** | Every hook, script, command and workflow the article describes but does not print | Each one cites the sentence it implements in [docs/article-map.md](docs/article-map.md), and each has tests |
+| **Install** | A Claude Code plugin and an idempotent installer that place both layers into your repository | Never overwrites a file; appends one marked block to CLAUDE.md; never commits |
+
+Nothing the article does not call for is here. Unofficial. Not affiliated with
+or endorsed by Anthropic.
 
 ## The loop
 
@@ -31,23 +33,69 @@ flowchart LR
     D --> B["3 Build<br/>plan.md + CLAUDE.md<br/>skills, hooks, agents"]
     B --> T["4 Test<br/>make test, evals"]
     T --> Dp["5 Deploy<br/>REVIEW.md, approval-gate hook"]
-    Dp --> M["6 Maintain<br/>bands.yaml"]
+    Dp --> M["6 Maintain<br/>bands.yaml + detector"]
     M -- "breach writes the next intent.md" --> P
 ```
 
-| Stage | Artifact | Where it lives here |
+| Stage | Verbatim | Completed |
 | --- | --- | --- |
-| Plan | intent.md | intent/&lt;NNNN&gt;-&lt;slug&gt;/intent.md |
-| Design | spec.md | intent/&lt;NNNN&gt;-&lt;slug&gt;/spec.md |
-| Build | plan.md, CLAUDE.md, skills, hooks, agents | intent/.../plan.md, CLAUDE.md, .claude/ |
-| Test | feedback loop, evals | Makefile to scripts/validate.sh, evals/, .github/workflows/agent-evals.yml |
-| Deploy | REVIEW.md, approval-gate hook | REVIEW.md, .claude/settings.json, .claude/hooks/production-gate.sh |
-| Maintain | bands.yaml, intent.md again | bands.yaml, .claude/skills/intent-template/ |
+| Plan | template example | `intent-template` skill writes `intent/<NNNN>-<slug>/intent.md` |
+| Design | the spec prompt | `/spec` slash command |
+| Build | CLAUDE.md, secure-api-review skill, verifier agent | `plan-sync.sh`, `protected-paths.sh`, `check-endpoints.sh` |
+| Test | agent-evals.yml | `protect-tests.sh`, `test.yml` PR check, two skill-trigger evals |
+| Deploy | REVIEW.md, settings.json, production-gate.sh | `/babysit-pr` |
+| Maintain | bands.yaml | `detect-band.py` with Western Electric rules, `bands.yml` nightly trigger |
 
-The chain of commits is the audit trail: who asked for what, what the agent
-produced, who approved it.
+## Install it in your own repository
 
-## Quickstart
+Inside Claude Code, in the repository you want to govern:
+
+```
+/plugin marketplace add imsungbin/ai-native-sdlc-playbook
+/plugin install ai-native-sdlc@ai-native-sdlc-playbook
+/sdlc-init
+```
+
+The plugin brings the skills, the verifier agent, the slash commands and the
+four hooks. `/sdlc-init` places the files that must live in your repo:
+`REVIEW.md`, `bands.yaml`, the artifact templates, the scripts, the workflows,
+and a `.claude/protected-paths.txt` for you to fill. Then it stops and shows
+you the diff. Nothing is committed until you commit it.
+
+**What happens to your CLAUDE.md.** It is never overwritten. If you have none,
+a one-page skeleton is created for you to fill with `/init`. If you have one,
+exactly one block is appended, the article's "Verifying your work" section,
+between `<!-- ai-native-sdlc:begin -->` and `<!-- ai-native-sdlc:end -->`
+markers that carry the version and a content hash. Your test command is read
+from your existing `Test:` line, or detected from your Makefile, package.json,
+pyproject, Cargo.toml or go.mod, or left as a flagged placeholder. Running it
+again is a no-op. A newer plugin version upgrades the block in place; a block
+you edited by hand is left alone and reported. A CLAUDE.md that already has a
+verification section is not touched, and the block is printed for you to
+reconcile.
+
+**Without the plugin system** (other coding agents, air-gapped hosts):
+
+```
+git clone --depth 1 --branch v0.2.0 https://github.com/imsungbin/ai-native-sdlc-playbook.git
+ai-native-sdlc-playbook/install/adopt.sh --into path/to/your/repo --standalone
+```
+
+Standalone mode also copies the `.claude/` components and merges the hook
+entries into your `.claude/settings.json` without duplicating any that exist.
+The script is on disk before it runs, pinned to a tag, and has ten behavior
+tests in `scripts/test_adopt.sh`. There is no `curl | sh` and there will not
+be one: the article's own managed settings deny `Bash(curl *)`, and what this
+installs is hooks that run on every tool call.
+
+**Why a plugin and not a fork.** The article places `CLAUDE.md`, `intent/`,
+`REVIEW.md` and `.claude/` inside the product repository, next to the code
+they govern, and says CLAUDE.md is written per codebase. This repository is
+the kit you carry into one, not the product. Forking works for a brand-new
+project, and the GitHub template button does the same, but you still replace
+CLAUDE.md, README and `intent/` before it is yours.
+
+## Quickstart for this repository
 
 ```
 git clone https://github.com/imsungbin/ai-native-sdlc-playbook.git
@@ -55,228 +103,194 @@ cd ai-native-sdlc-playbook
 make test
 ```
 
-Expected last line: `validate: all checks passed`.
-
-Then open Claude Code in the directory. `CLAUDE.md`, both skills, the
-`verifier` agent, the `/spec` command, and the production-gate hook are all
-live from the first session.
+Expected last line: `validate: all checks passed`. The run prints one line per
+check: structure, JSON and YAML, the gate's three exit paths, the twelve
+verbatim hashes, the hook tests, the installer tests and the detector's unit
+tests.
 
 ## What is inside
 
 ```
 .
-├── CLAUDE.md                          conventions, commands, verification block
-├── REVIEW.md                          review passes, Important vs nit, nit cap
-├── bands.yaml                         control-band tiers for Stage 6
+├── CLAUDE.md                          this repo's own; one page
+├── REVIEW.md                          V  review passes, Important vs nit
+├── bands.yaml                         V  control-band tiers
+├── verbatim.lock                      R  sha256 per verbatim file
 ├── .claude/
-│   ├── settings.json                  PreToolUse hook wiring
-│   ├── hooks/production-gate.sh       blocks production deploys without approval
-│   ├── skills/secure-api-review/      the article's example policy skill
-│   ├── skills/intent-template/        writes intent.md from templates/intent.md
-│   ├── agents/verifier.md             the article's example subagent
-│   └── commands/spec.md               the article's Stage 2 prompt as /spec
-├── .github/workflows/agent-evals.yml  continuous evals, verbatim
-├── evals/                             one eval and check.sh so the workflow runs
-├── templates/                         intent.md, spec.md, plan.md skeletons
-├── intent/                            this repo's own loop record (two changes)
-├── examples/article/                  the article's illustrations, for reference
-├── AGENTS.md, .agents/skills          symlinks for non-Claude coding agents
-└── Makefile, scripts/validate.sh      the single feedback-loop command
+│   ├── settings.json                  V  wires the production gate
+│   ├── protected-paths.txt            R  the verbatim layer, frozen for sessions
+│   ├── hooks/
+│   │   ├── production-gate.sh         V  Play 5b
+│   │   ├── plan-sync.sh               C  Play 3a step 7
+│   │   ├── protect-tests.sh           C  Stage 4 step 7
+│   │   ├── protected-paths.sh         C  Play 3f
+│   │   └── hooks.json                 I  all four, for the plugin
+│   ├── skills/secure-api-review/      V  Play 3e
+│   ├── skills/intent-template/        R  Stage 1 step 3
+│   ├── agents/verifier.md             V  Play 3g
+│   └── commands/
+│       ├── spec.md                    V+R Stage 2 step 3
+│       ├── babysit-pr.md              C  Play 5a step 4
+│       └── sdlc-init.md               I  runs the installer
+├── .claude-plugin/                    I  plugin.json, marketplace.json
+├── install/                           I  adopt.sh, MANIFEST
+├── .github/workflows/
+│   ├── agent-evals.yml                V  Play 4b
+│   ├── test.yml                       C  the PR check
+│   └── bands.yml                      C  Play 6a step 4
+├── scripts/
+│   ├── validate.sh                    R  make test
+│   ├── check-verbatim.sh              R  the hash check
+│   ├── check-article.sh               R  has the article changed
+│   ├── check-endpoints.sh             C  what the security skill runs
+│   ├── detect-band.py                 C  Play 6a step 2, no model
+│   └── test_*.{sh,py}                 C  hooks, installer, detector
+├── evals/                             R+C check.sh and three evals
+├── templates/                         R+I intent, spec, plan, CLAUDE.md, REVIEW.md
+├── intent/                            R  eight changes, each intent → spec → plan
+├── docs/                              R  article-map.md, article fingerprint
+├── examples/article/                  V  illustrations that are not live config
+└── AGENTS.md, .agents/skills          R  symlinks for other coding agents
 ```
+
+V verbatim, C completed, I install, R this repository. The full table with the
+article sentence behind each C file is [docs/article-map.md](docs/article-map.md).
 
 ## Run one change through the loop
 
-1. **Plan.** In Claude Code, ask for an intent. The `intent-template` skill
-   triggers and writes `intent/<NNNN>-<slug>/intent.md`. Review it, then commit
-   it on its own.
-2. **Design.** Run the slash command, review the result, commit `spec.md`.
-
-   ```
-   /spec intent/0001-your-change/intent.md
-   ```
-
-3. **Build.** Start Claude Code in plan mode, give it `intent.md` and
-   `spec.md`, iterate until the plan stands on its own, commit `plan.md`, then
-   implement.
-4. **Test.** Run `make test` before calling anything done. The verification
-   block in `CLAUDE.md` enforces this by instruction.
-5. **Deploy.** `REVIEW.md` drives the review passes. `production-gate.sh`
-   blocks any Bash command containing both "deploy" and "production" unless
-   `RELEASE_APPROVAL` is set.
-6. **Maintain.** `bands.yaml` holds the response tiers. Your detection script
-   (not shipped here, see below) writes the next `intent.md` through the
-   `intent-template` skill.
-
-## Adopt it in your own repository
-
-1. Copy `CLAUDE.md` (rewrite it for your codebase, keep the article's
-   structure), `REVIEW.md`, `bands.yaml`, `.claude/`, `templates/`, `evals/`,
-   and the `Makefile` target or an equivalent single test command.
-2. Walk the [file map](#file-map). Each row says what an adopter replaces.
-3. Set the `ANTHROPIC_API_KEY` repository secret, or disable the "Agent evals"
-   workflow. Its nightly schedule fails without the secret.
-4. If you use a coding agent other than Claude Code, it finds the same
-   instructions at `AGENTS.md` and the same skills under `.agents/skills/`;
-   both are symbolic links. On Windows, set `git config core.symlinks true`
-   before cloning, or they check out as text files.
+1. **Plan.** Ask Claude Code for an intent. The `intent-template` skill writes
+   `intent/<NNNN>-<slug>/intent.md`. Review it, commit it on its own.
+2. **Design.** `/spec intent/<NNNN>-<slug>/intent.md`, review, commit `spec.md`.
+3. **Build.** Plan mode with both files, iterate, commit `plan.md`, implement.
+   `plan-sync.sh` blocks a commit whose staged files are not in the plan
+   unless `plan.md` is staged with them. `protected-paths.sh` blocks edits to
+   anything in `.claude/protected-paths.txt`.
+4. **Test.** `make test` before "done". For a bug fix, start the session with
+   `SDLC_FIX_TASK=1` and `protect-tests.sh` makes test files read-only.
+5. **Deploy.** `REVIEW.md` drives the review passes. `/babysit-pr` sweeps
+   failing checks and unresolved threads until green, and never merges.
+   `production-gate.sh` blocks any Bash command containing both "deploy" and
+   "production" unless `RELEASE_APPROVAL` is set.
+6. **Maintain.** `bands.yml` runs nightly: it computes the CI failure rate,
+   `detect-band.py` classifies it against `bands.yaml`, and at 2σ or 3σ, with
+   a key present, Claude diagnoses or writes the next `intent.md` as a PR.
 
 ## This repository's own loop record
 
-`intent/0001-bootstrap-playbook-repo/` is the real record of building this
-repository, not a worked fiction. The three files were committed in stage order,
-one commit each, before the repository they describe was finished.
-
-`main` was squashed to a single commit at publication. The stage-by-stage
-history is preserved unchanged on the `history` branch and at tag `v0.1.0`:
+Eight changes, each with an `intent/` triple. The first two were committed
+stage by stage before publication; that history is unchanged on the
+[`history`](https://github.com/imsungbin/ai-native-sdlc-playbook/commits/history)
+branch and at tag `v0.1.0`:
 
 ```
 git fetch origin history
 git log --reverse --format='%h %ad %s' --date=short origin/history
 ```
 
-The first three commits are the intent, the spec, and the plan.
-`intent/0002-multi-agent-entry-points/` is the second change run through the
-same loop, again committed intent, spec, plan, then build.
+Changes 0003 to 0008 are the completed and install layers. They were run
+through the loop as six triples and landed together in the `v0.2.0` commit.
 
 ## File map
 
-| Path | Origin | What to change for your org |
+| Path | Layer | What to change for your org |
 | --- | --- | --- |
-| README.md | Authored | Rewrite for your repository. |
-| LICENSE | Authored | Your copyright holder, or your own license. |
-| CLAUDE.md | Authored | Rewrite entirely for your codebase; keep the structure and the verification block. |
-| AGENTS.md | Authored, symlink to CLAUDE.md | Keep if you run agents that read `AGENTS.md`; otherwise delete. |
-| .agents/skills | Authored, symlink to .claude/skills | Keep if you run agents that scan `.agents/skills/`; otherwise delete. |
-| REVIEW.md | Article, verbatim | Adjust the "Do not report" paths (`src/gen/` is the article's example) and the nit cap. |
-| bands.yaml | Article, verbatim | Your metric, your baseline window, and the routes your agent may take. |
-| Makefile | Authored | Point `test` at your real test command. |
-| .gitignore | Authored | Add whatever your toolchain drops. |
-| .claude/settings.json | Article, verbatim | Add your own gates; non-negotiable ones belong in managed settings instead. |
-| .claude/hooks/production-gate.sh | Article, verbatim | Define what counts as approval in your change process. |
-| .claude/skills/secure-api-review/SKILL.md | Article, verbatim | Replace with your own API security policy, and supply the `scripts/check-endpoints.sh` it calls. |
-| .claude/skills/intent-template/SKILL.md | Authored | Keep if you keep `templates/intent.md`; otherwise point it at your template. |
-| .claude/agents/verifier.md | Article, verbatim | Replace `make run` with the command that starts your app. |
-| .claude/commands/spec.md | Article prompt, verbatim, plus one authored line | Name your own skills and standards in the prompt. |
-| .github/workflows/agent-evals.yml | Article, verbatim | Needs an `ANTHROPIC_API_KEY` secret; adjust the schedule and the allowed tools. |
-| evals/check.sh | Authored | Extend the checks your evals need. |
-| evals/001-verification-command.json | Authored | Replace with 20 to 50 real tasks from your recent work. |
-| scripts/validate.sh | Authored | Replace with your real test suite, or drop it once you have one. |
-| templates/intent.md | Authored | Your organization's agreed intent fields. |
-| templates/spec.md | Authored | Your organization's agreed spec fields. |
-| templates/plan.md | Authored | Your organization's agreed plan fields. |
-| intent/0001-bootstrap-playbook-repo/intent.md | Authored, this repo's own record | Delete; start your own `intent/0001-...`. |
-| intent/0001-bootstrap-playbook-repo/spec.md | Authored, this repo's own record | Delete. |
-| intent/0001-bootstrap-playbook-repo/plan.md | Authored, this repo's own record | Delete. |
-| intent/0002-multi-agent-entry-points/intent.md | Authored, this repo's own record | Delete. |
-| intent/0002-multi-agent-entry-points/spec.md | Authored, this repo's own record | Delete. |
-| intent/0002-multi-agent-entry-points/plan.md | Authored, this repo's own record | Delete. |
-| examples/article/README.md | Authored | Delete with the folder. |
-| examples/article/intent.md | Article, verbatim | Reference only; the article's fictional example. |
-| examples/article/plan.md | Article, verbatim | Reference only; the article's fictional example. |
-| examples/article/CLAUDE.md | Article, verbatim | Reference only; the article's payments-service example plus its verification block. |
-| examples/article/managed-settings.json | Article, same JSON re-indented | Reference only; managed settings are deployed by MDM or the admin console, not from a repository. |
-| examples/article/triage-step.yml | Article, verbatim | Reference only; the article's pipeline triage step. |
+| README.md, LICENSE, CLAUDE.md | R | Yours entirely. `/sdlc-init` never copies these; CLAUDE.md gets one block. |
+| AGENTS.md, .agents/skills | R | Symlinks for other agents; keep or delete. |
+| REVIEW.md | V | Copied from `templates/REVIEW.md`; fill in your generated paths and nit cap. |
+| bands.yaml | V | Your metric, baseline window, and the routes your agent may take. |
+| verbatim.lock, scripts/check-verbatim.sh | R | Delete in your repo; it guards this one. |
+| .claude/settings.json | V | With the plugin, leave it; standalone install merges the hooks in. |
+| .claude/protected-paths.txt | R | Your frozen and generated paths, one glob per line. |
+| .claude/hooks/production-gate.sh | V | Define what counts as approval in your change process. |
+| .claude/hooks/plan-sync.sh, protect-tests.sh, protected-paths.sh | C | Use as-is. |
+| .claude/hooks/hooks.json | I | Plugin wiring; nothing to change. |
+| .claude/skills/secure-api-review/SKILL.md | V | Replace with your API security policy. |
+| .claude/skills/intent-template/SKILL.md | R | Keep with `templates/intent.md`. |
+| .claude/agents/verifier.md | V | Replace `make run` with what starts your app. |
+| .claude/commands/spec.md | V+R | Name your own skills in the prompt. |
+| .claude/commands/babysit-pr.md, sdlc-init.md | C, I | Use as-is. |
+| .claude-plugin/, install/ | I | Not copied into your repo. |
+| .github/workflows/agent-evals.yml | V | Needs `ANTHROPIC_API_KEY`; adjust schedule and tools. |
+| .github/workflows/test.yml | C | Point at your test command. |
+| .github/workflows/bands.yml | C | Point the metric step at your Prometheus or CI API. |
+| evals/check.sh, evals/*.json | R, C | Replace with 20 to 50 real tasks. |
+| scripts/check-endpoints.sh | C | Extend the route patterns for your framework. |
+| scripts/detect-band.py, test_detect_band.py | C | Use as-is. |
+| scripts/validate.sh, test_hooks.sh, test_adopt.sh, check-article.sh | R | Delete in your repo. |
+| templates/*.md | R, I | Your organization's agreed fields. |
+| intent/000*/ | R | Delete; start your own `intent/0001-...`. |
+| docs/ | R | Delete in your repo. |
+| examples/article/ | V | Reference only. |
 
 ## Author's calls (decisions the article does not make)
 
-1. One directory per change, `intent/<NNNN>-<slug>/`, holding the triple. The
-   article calls for "an intent/ folder in the product repo" and for committing
-   `spec.md` alongside `intent.md`. Adding `plan.md` keeps the whole audit trail
-   for one change in one place.
-2. The `templates/spec.md` headings. The article ships no `spec.md`, only the
-   prompt that produces one, so the headings come from what that prompt asks for
-   and what its review step checks.
-3. The Stage 2 prompt lives at `.claude/commands/spec.md` with one line prepended
-   naming the file argument. The article says to "codify it as an
-   organization-level slash command" but does not print the command file.
-4. The intent template is a skill that references `templates/intent.md`. Article
-   Stage 1 step 3 calls for "the organization's template, which can be encoded as
-   a skill." The same skill covers Stage 6, where the agent writes its diagnosis
-   as an `intent.md` in the Stage 1 format.
-5. `make test`, running `scripts/validate.sh`, is this repository's single
-   feedback-loop command. Article Stage 4 step 1 requires one command that exits
-   non-zero on failure but does not say what it should check in a repository like
-   this one.
-6. A minimal `evals/`, one eval and one `check.sh`, so the article's
-   `agent-evals.yml` runs unchanged over `evals/*.json`.
-7. `examples/article/` holds the article's illustrations that are not live
-   configuration here, and the article's two `CLAUDE.md` blocks are concatenated
-   into one file because they are two sections of the same file.
-8. `bands.yaml` sits at the repository root. The article prints the file but does
-   not say where it lives, and the deterministic detection script it configures is
-   not shipped here (see the next section).
-9. This repository's own bootstrap is run through the loop for real, in stage
-   order, as the worked example, instead of inventing a fictional project. That
-   commit chain lives on the `history` branch; `main` starts from one commit.
-10. `AGENTS.md` and `.agents/skills` are symbolic links to `CLAUDE.md` and
-    `.claude/skills`. The article is written for Claude Code and places
-    institutional knowledge in those two locations; other coding agents read
-    `AGENTS.md` and scan `.agents/skills/`. Links give them the same files with
-    one source of truth and no copy to drift.
+1. One directory per change, `intent/<NNNN>-<slug>/`, holding the triple.
+2. The `templates/spec.md` headings, from what the Stage 2 prompt asks for.
+3. The Stage 2 prompt as `.claude/commands/spec.md` with one prepended line.
+4. The intent template as a skill referencing `templates/intent.md`; the same
+   skill serves Stage 6.
+5. `make test` running `scripts/validate.sh` as the single feedback command.
+6. A minimal `evals/` so `agent-evals.yml` runs unchanged.
+7. `examples/article/` for illustrations that are not live config; the two
+   CLAUDE.md blocks concatenated as one file.
+8. `bands.yaml` at the root.
+9. The repository's own bootstrap run through the loop as the worked example;
+   that history lives on the `history` branch.
+10. `AGENTS.md` and `.agents/skills` as symlinks for other coding agents.
+11. The rule "nothing the article does not call for" replaces "nothing added".
+    It admits what the article describes in prose and forbids everything else,
+    and `docs/article-map.md` is the evidence for each admission.
+12. A hash lock on the verbatim layer, and the same files as protected paths.
+13. Distribution as a plugin, with `/sdlc-init` for repo-root files and a
+    pinned standalone script as the fallback. No piped installer.
+14. `SDLC_FIX_TASK=1` declares a fix task for `protect-tests.sh`; the hook
+    does not guess.
+15. `check-endpoints.sh` is an inventory, not a judge; the article does not
+    say what it checks, so it lists endpoints and leaves the four rules to the
+    skill.
+16. `bands.yml` runs detection without a key and the Claude tiers only with
+    one, so the workflow is honest on a fresh fork.
 
 ## What this repo does not contain, and why
 
-Product features, not files. The article describes these, but they are configured
-in Anthropic's products or in an organization's admin surface rather than in a
-repository, so they are out of scope here and are not faked.
+Products and admin surfaces, not files. Described in the article, configured
+elsewhere, not faked here: MCP wiring for release tooling and legacy systems,
+sandboxing and managed settings enforcement (the JSON is under
+`examples/article/` for reference), Claude Security scans, Claude Tag on call,
+the managed Code Review service, Claude Design mocks.
 
-- MCP wiring for deployment tooling and legacy systems (Stage 5 CI/CD step 4;
-  the Stage 3 sidebar on legacy systems and the source of truth).
-- Sandboxing and managed settings (Stage 5, "Managed settings for a regulated
-  enterprise"). The JSON is kept under `examples/article/` for reference only,
-  since managed settings are deployed by MDM or the admin console and a file in a
-  repository cannot enforce them.
-- Claude Security recurring codebase scans (Stage 6).
-- Claude Tag on call in Slack (Stage 6).
-
-Described in prose, with no code in the article. Write your own; the article
-states what each must do.
-
-- The Stage 6 detection script: deterministic, rolling mean and standard
-  deviation, Western Electric rules, unit tested, with no model involved.
-- The Stage 4 hook that blocks edits to test files during a fix task.
-- The Stage 3 hook that keeps `plan.md` in sync with the diff.
-- The Stage 5 slash command that babysits a PR to green.
-- The managed Code Review service or the `claude-code-action` wiring.
-- Claude Design mocks (Stage 2).
+Not here on purpose: a sample application. The verifier agent runs `make run`,
+which this repository cannot satisfy without inventing a project. That is the
+one gap between "faithful" and "runs out of the box", and it is stated rather
+than papered over.
 
 ## Verification
 
-`make test` runs `scripts/validate.sh`, which checks that:
+`make test` runs `scripts/validate.sh`: every expected file exists; the two
+symlinks resolve; every script passes `bash -n` and is executable; every JSON
+and YAML file parses; the plugin manifests agree and point at real paths; the
+install manifest names real files; the gate exits 2, 0, 0 on its three cases;
+skills, agent and commands have frontmatter; documents start with a heading;
+CLAUDE.md is at most sixty lines; the twelve verbatim hashes match; every
+locked file is a protected path; then the hook tests, the installer tests and
+the detector's unit tests. It ends with `validate: all checks passed`.
 
-- every file this repository is meant to contain exists and is non-empty;
-- `AGENTS.md` and `.agents/skills` are symbolic links pointing at `CLAUDE.md`
-  and `../.claude/skills` and resolve;
-- `production-gate.sh`, `evals/check.sh` and `scripts/validate.sh` pass
-  `bash -n` and are executable;
-- `.claude/settings.json`, `examples/article/managed-settings.json` and every
-  `evals/*.json` parse as JSON, and every eval carries a string `prompt`;
-- `bands.yaml`, `agent-evals.yml` and `triage-step.yml` parse as YAML (skipped
-  with a warning if neither a Python `yaml` module nor ruby is available);
-- the production gate exits 2 on a production deploy with no `RELEASE_APPROVAL`,
-  exits 0 with it, and exits 0 on an unrelated command;
-- both `SKILL.md` files and `agents/verifier.md` open with frontmatter carrying a
-  `name:` line;
-- `REVIEW.md`, `CLAUDE.md` and the templates start with a markdown heading.
-
-It prints one line per check and ends with `validate: all checks passed`. Any
-failure prints `FAIL:` and exits 1.
+`scripts/check-article.sh` fetches the article and compares the fingerprint of
+its code blocks with `docs/article-blocks.sha256`. It needs the network and is
+not part of `make test`.
 
 ## Contributing
 
-The bar for a change is the article. If the article describes it and it can
-live in a repository, it belongs here at the path the article names. If the
-article does not describe it, it goes under "Author's calls" with the reason,
-or it does not go in. Run a change through the loop the way the two existing
-`intent/` directories did, and run `make test` before opening a PR.
+The bar is the article. If the article prints it, it is verbatim and locked.
+If the article describes it in prose, it is completed: one `intent/` triple,
+one row in `docs/article-map.md`, tests. If the article does not mention it, it
+does not go in. Run `make test` before opening a PR; main requires the check.
 
-If this saved you an afternoon of copying code blocks out of a blog post, a
-star helps the next person find it.
+If this saved you an afternoon, a star helps the next person find it.
 
 ## Attribution and license
 
 The article and the code blocks reproduced here are by Louis Claxton and are
-copyright Anthropic. They are reproduced for reference, with attribution and
-unmodified, in
+copyright Anthropic, reproduced unmodified with attribution from
 [The AI-Native SDLC playbook](https://claude.com/blog/the-ai-native-sdlc-playbook).
 Everything authored in this repository is MIT licensed; see [LICENSE](LICENSE).

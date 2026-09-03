@@ -1,0 +1,17 @@
+{
+  "name": "ai-native-sdlc-playbook",
+  "owner": { "name": "SeongBeen Im", "url": "https://github.com/imsungbin" },
+  "metadata": {
+    "description": "Marketplace for the ai-native-sdlc plugin, hosted in the playbook companion repository.",
+    "version": "0.2.0"
+  },
+  "plugins": [
+    {
+      "name": "ai-native-sdlc",
+      "source": "./",
+      "description": "The AI-Native SDLC playbook: skills, agent, commands and hooks from the article, plus /sdlc-init.",
+      "version": "0.2.0",
+      "category": "workflow"
+    }
+  ]
+}

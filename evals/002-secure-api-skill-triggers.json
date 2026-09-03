@@ -1,0 +1,5 @@
+{
+  "name": "secure-api-skill-triggers",
+  "prompt": "I am about to add a new external-facing endpoint, POST /refunds, to this codebase. Before writing code, name the skill in this repository that applies and list, in one line each, the four things it requires of every endpoint. Reply with the skill name and the four lines only.",
+  "expect": { "result_contains": ["secure-api-review", "JWT", "unknown fields", "audit", "pii"] }
+}

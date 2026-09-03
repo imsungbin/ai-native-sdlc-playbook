@@ -1,0 +1,28 @@
+# What adopt.sh places into a target project. Tab-separated:
+#   mode    layer   source (relative to this repo)          destination (relative to target)
+# mode: both = plugin and standalone installs; standalone = only when the
+# plugin is not providing the component. Layers: V verbatim, C completed,
+# I install, R this repo's tooling reused as-is.
+both	I	templates/REVIEW.md	REVIEW.md
+both	V	bands.yaml	bands.yaml
+both	R	templates/intent.md	templates/intent.md
+both	R	templates/spec.md	templates/spec.md
+both	R	templates/plan.md	templates/plan.md
+both	C	scripts/check-endpoints.sh	scripts/check-endpoints.sh
+both	C	scripts/detect-band.py	scripts/detect-band.py
+both	C	scripts/test_detect_band.py	scripts/test_detect_band.py
+both	C	.github/workflows/test.yml	.github/workflows/test.yml
+both	C	.github/workflows/bands.yml	.github/workflows/bands.yml
+both	V	.github/workflows/agent-evals.yml	.github/workflows/agent-evals.yml
+both	R	evals/check.sh	evals/check.sh
+both	R	evals/001-verification-command.json	evals/001-verification-command.json
+both	I	install/protected-paths.template.txt	.claude/protected-paths.txt
+standalone	V	.claude/hooks/production-gate.sh	.claude/hooks/production-gate.sh
+standalone	C	.claude/hooks/plan-sync.sh	.claude/hooks/plan-sync.sh
+standalone	C	.claude/hooks/protect-tests.sh	.claude/hooks/protect-tests.sh
+standalone	C	.claude/hooks/protected-paths.sh	.claude/hooks/protected-paths.sh
+standalone	V	.claude/skills/secure-api-review/SKILL.md	.claude/skills/secure-api-review/SKILL.md
+standalone	R	.claude/skills/intent-template/SKILL.md	.claude/skills/intent-template/SKILL.md
+standalone	V	.claude/agents/verifier.md	.claude/agents/verifier.md
+standalone	V	.claude/commands/spec.md	.claude/commands/spec.md
+standalone	C	.claude/commands/babysit-pr.md	.claude/commands/babysit-pr.md

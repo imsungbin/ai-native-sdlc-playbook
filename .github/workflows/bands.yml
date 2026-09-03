@@ -1,0 +1,97 @@
+# Completes article Play 6a, step 4: the trigger layer, "a scheduled workflow
+# in GitHub". Detection is deterministic and always runs. The Claude steps run
+# only when ANTHROPIC_API_KEY is set, at the tier bands.yaml allows:
+#   2sigma: diagnose, read-only, with the tools listed in bands.yaml
+#   3sigma: propose, writes intent/<NNNN>-band-breach/intent.md and opens a PR
+# The metric is the one bands.yaml names: ci_test_failure_rate, computed here
+# as the daily failure share of this repository's workflow runs over 30 days.
+name: Control bands
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      tier: ${{ steps.detect.outputs.tier }}
+      action: ${{ steps.detect.outputs.action }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Daily CI test failure rate, last 30 days
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&created=>=$(date -u -d '30 days ago' +%F)" \
+            --jq '.workflow_runs[] | select(.conclusion != null) | [.created_at[:10], (if .conclusion == "failure" then 1 else 0 end)] | @tsv' \
+          | awk -F'\t' '{n[$1]++; f[$1]+=$2} END {for (d in n) printf "%s\t%.4f\n", d, f[d]/n[d]}' \
+          | sort | cut -f2 > series.txt
+          echo "samples: $(wc -l < series.txt)"
+      - name: Detect
+        id: detect
+        run: |
+          python3 scripts/detect-band.py --input series.txt --bands bands.yaml > result.json
+          cat result.json
+          echo "tier=$(jq -r .tier result.json)" >> "$GITHUB_OUTPUT"
+          echo "action=$(jq -r '.action // "none"' result.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with: { name: band-result, path: result.json }
+  diagnose:
+    needs: detect
+    if: needs.detect.outputs.action == 'diagnose' || needs.detect.outputs.action == 'propose'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip without a key
+        id: key
+        run: echo "present=${{ secrets.ANTHROPIC_API_KEY != '' }}" >> "$GITHUB_OUTPUT"
+      - run: npm install -g @anthropic-ai/claude-code
+        if: steps.key.outputs.present == 'true'
+      - name: Diagnose (read-only, tools from bands.yaml)
+        if: steps.key.outputs.present == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tools=$(python3 -c 'import yaml;print(yaml.safe_load(open("bands.yaml"))["tiers"]["2sigma"]["tools"])')
+          claude -p "The CI test failure rate for this repository breached its ${{ needs.detect.outputs.tier }} control band. Read the recent workflow runs with the tools you have, identify the most likely cause, say whether it looks flaky or real, and write a five-line diagnosis." \
+            --allowedTools "$tools" --output-format json > diagnosis.json
+          jq -r .result diagnosis.json | tee diagnosis.md
+      - uses: actions/upload-artifact@v4
+        if: steps.key.outputs.present == 'true'
+        with: { name: diagnosis, path: diagnosis.md }
+  propose:
+    needs: [detect, diagnose]
+    if: needs.detect.outputs.action == 'propose'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip without a key
+        id: key
+        run: echo "present=${{ secrets.ANTHROPIC_API_KEY != '' }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        if: steps.key.outputs.present == 'true'
+        with: { name: diagnosis }
+      - run: npm install -g @anthropic-ai/claude-code
+        if: steps.key.outputs.present == 'true'
+      - name: Write intent.md in the Stage 1 format
+        if: steps.key.outputs.present == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "The control band for ci_test_failure_rate breached 3 sigma. The diagnosis is in diagnosis.md. Using the intent-template skill, write the finding as the next intent/<NNNN>-band-breach/intent.md: the anomaly and its evidence as the problem, a proposed outcome, affected systems, constraints, and open questions. Write the file and nothing else." \
+            --allowedTools "Read,Write,Bash(ls *)" --output-format json > /dev/null
+      - name: Open the PR through the review gate
+        if: steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "control-bands[bot]"
+          git config user.email "control-bands@users.noreply.github.com"
+          b="band-breach-$(date -u +%Y%m%d)"
+          git checkout -b "$b" && git add intent && git commit -m "Stage 1: intent from control-band breach ($(date -u +%F))" && git push -u origin "$b"
+          gh pr create --title "Control band breach: ci_test_failure_rate" --body-file diagnosis.md

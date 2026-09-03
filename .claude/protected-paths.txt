@@ -1,0 +1,11 @@
+# Paths a session may not edit (protected-paths.sh, article Play 3f).
+# One shell glob per line, relative to the project root.
+# In this repository the verbatim layer is frozen; see verbatim.lock.
+REVIEW.md
+bands.yaml
+.claude/settings.json
+.claude/hooks/production-gate.sh
+.claude/skills/secure-api-review/SKILL.md
+.claude/agents/verifier.md
+.github/workflows/agent-evals.yml
+examples/article/*
