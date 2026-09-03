@@ -1,0 +1,6 @@
+- name: Triage failed build
+  if: failure()
+  run: >
+    claude -p "Read the build log at out/build.log. Identify the most
+    likely cause, say whether the failure looks flaky or real, and write a
+    three-line summary for the PR thread." >> triage.md

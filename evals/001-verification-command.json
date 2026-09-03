@@ -1,0 +1,5 @@
+{
+  "name": "verification-command",
+  "prompt": "Read CLAUDE.md in this repository and reply with the single command that verifies the repository, and nothing else.",
+  "expect": { "result_contains": ["make test"] }
+}
