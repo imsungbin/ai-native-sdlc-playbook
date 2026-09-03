@@ -63,6 +63,10 @@ production writes the next `intent.md`. The chain of commits is the audit trail.
 
 4. Set the `ANTHROPIC_API_KEY` repository secret, or disable the "Agent evals"
    workflow. Its nightly schedule fails without the secret.
+5. If you use a coding agent other than Claude Code, it finds the same
+   instructions at `AGENTS.md` and the same skills under `.agents/skills/`; both
+   are symbolic links. On Windows, set `git config core.symlinks true` before
+   cloning, or they check out as text files.
 
 ## File map
 
@@ -71,6 +75,8 @@ production writes the next `intent.md`. The chain of commits is the audit trail.
 | README.md | Authored | Rewrite for your repository. |
 | LICENSE | Authored | Your copyright holder, or your own license. |
 | CLAUDE.md | Authored | Rewrite entirely for your codebase; keep the structure and the verification block. |
+| AGENTS.md | Authored, symlink to CLAUDE.md | Keep if you run agents that read `AGENTS.md`; otherwise delete. |
+| .agents/skills | Authored, symlink to .claude/skills | Keep if you run agents that scan `.agents/skills/`; otherwise delete. |
 | REVIEW.md | Article, verbatim | Adjust the "Do not report" paths (`src/gen/` is the article's example) and the nit cap. |
 | bands.yaml | Article, verbatim | Your metric, your baseline window, and the routes your agent may take. |
 | Makefile | Authored | Point `test` at your real test command. |
@@ -91,6 +97,9 @@ production writes the next `intent.md`. The chain of commits is the audit trail.
 | intent/0001-bootstrap-playbook-repo/intent.md | Authored, this repo's own record | Delete; start your own `intent/0001-...`. |
 | intent/0001-bootstrap-playbook-repo/spec.md | Authored, this repo's own record | Delete. |
 | intent/0001-bootstrap-playbook-repo/plan.md | Authored, this repo's own record | Delete. |
+| intent/0002-multi-agent-entry-points/intent.md | Authored, this repo's own record | Delete. |
+| intent/0002-multi-agent-entry-points/spec.md | Authored, this repo's own record | Delete. |
+| intent/0002-multi-agent-entry-points/plan.md | Authored, this repo's own record | Delete. |
 | examples/article/README.md | Authored | Delete with the folder. |
 | examples/article/intent.md | Article, verbatim | Reference only; the article's fictional example. |
 | examples/article/plan.md | Article, verbatim | Reference only; the article's fictional example. |
@@ -109,6 +118,8 @@ git log --reverse --format='%h %ad %s' --date=short
 ```
 
 The first three commits are the intent, the spec, and the plan.
+`intent/0002-multi-agent-entry-points/` is the second change run through the
+same loop, again committed intent, spec, plan, then build.
 
 ## Author's calls (decisions the article does not make)
 
@@ -140,6 +151,11 @@ The first three commits are the intent, the spec, and the plan.
    not shipped here (see the next section).
 9. This repository's own bootstrap is run through the loop for real, in stage
    order, as the worked example, instead of inventing a fictional project.
+10. `AGENTS.md` and `.agents/skills` are symbolic links to `CLAUDE.md` and
+    `.claude/skills`. The article is written for Claude Code and places
+    institutional knowledge in those two locations; other coding agents read
+    `AGENTS.md` and scan `.agents/skills/`. Links give them the same files with
+    one source of truth and no copy to drift.
 
 ## What this repo does not contain, and why
 
@@ -172,6 +188,8 @@ states what each must do.
 `make test` runs `scripts/validate.sh`, which checks that:
 
 - every file this repository is meant to contain exists and is non-empty;
+- `AGENTS.md` and `.agents/skills` are symbolic links pointing at `CLAUDE.md`
+  and `../.claude/skills` and resolve;
 - `production-gate.sh`, `evals/check.sh` and `scripts/validate.sh` pass
   `bash -n` and are executable;
 - `.claude/settings.json`, `examples/article/managed-settings.json` and every

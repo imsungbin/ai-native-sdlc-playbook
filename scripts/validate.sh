@@ -33,6 +33,9 @@ PATHS=(
   intent/0001-bootstrap-playbook-repo/intent.md
   intent/0001-bootstrap-playbook-repo/spec.md
   intent/0001-bootstrap-playbook-repo/plan.md
+  intent/0002-multi-agent-entry-points/intent.md
+  intent/0002-multi-agent-entry-points/spec.md
+  intent/0002-multi-agent-entry-points/plan.md
   examples/article/README.md
   examples/article/intent.md
   examples/article/plan.md
@@ -50,6 +53,24 @@ for p in "${PATHS[@]}"; do
   fi
 done
 [ "$missing" -eq 0 ] && ok "all ${#PATHS[@]} expected files exist and are non-empty"
+
+# a2. entry points for other coding agents are links, not copies
+LINKS=(
+  "AGENTS.md:CLAUDE.md"
+  ".agents/skills:../.claude/skills"
+)
+for pair in "${LINKS[@]}"; do
+  link="${pair%%:*}"; want="${pair#*:}"
+  if [ ! -L "$link" ]; then
+    fail "not a symlink: $link (expected -> $want)"
+  elif [ "$(readlink "$link")" != "$want" ]; then
+    fail "symlink $link -> $(readlink "$link") (expected -> $want)"
+  elif [ ! -e "$link" ]; then
+    fail "symlink $link -> $want does not resolve"
+  else
+    ok "symlink $link -> $want"
+  fi
+done
 
 # b. shell syntax and executable bit
 SCRIPTS=(.claude/hooks/production-gate.sh evals/check.sh scripts/validate.sh)

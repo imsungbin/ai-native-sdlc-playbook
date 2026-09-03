@@ -23,6 +23,8 @@ own intent to spec to plan record. Nothing is added on top of the article.
 - examples/article/ holds the article's illustrations that are not live
   config here.
 - evals/ and scripts/ exist only so the article's files run unmodified.
+- AGENTS.md and .agents/skills are symlinks to CLAUDE.md and .claude/skills
+  for other coding agents. Edit the targets, never the links.
 
 ## Things Claude gets wrong
 - Do not add plays, hooks, scripts, or frameworks the article does not
