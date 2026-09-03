@@ -1,0 +1,15 @@
+# Completes article Stage 4: verification "logged in ... the PR check run".
+# This is the check branch protection requires. make test runs the structural
+# validator, the verbatim hash check, the hook tests, the installer tests and
+# the detection script's unit tests.
+name: Test
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test

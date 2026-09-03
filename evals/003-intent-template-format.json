@@ -1,0 +1,5 @@
+{
+  "name": "intent-template-format",
+  "prompt": "Capture this as an intent in the organization's agreed format and reply with the file content only, nothing else: the nightly build has failed three of the last five nights on the same flaky integration test, and the on-call engineer spends an hour each time re-running it.",
+  "expect": { "result_contains": ["# Intent:", "Status: draft", "## Problem", "## Proposed outcome", "## Affected users and systems", "## Constraints", "## Open questions"] }
+}

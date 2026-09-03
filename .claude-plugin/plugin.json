@@ -1,0 +1,14 @@
+{
+  "name": "ai-native-sdlc",
+  "version": "0.2.0",
+  "description": "The AI-Native SDLC playbook as a plugin: the article's skills, agent, commands and hooks, plus /sdlc-init to place the repo-root files into your project.",
+  "author": { "name": "SeongBeen Im", "url": "https://github.com/imsungbin" },
+  "homepage": "https://github.com/imsungbin/ai-native-sdlc-playbook",
+  "repository": "https://github.com/imsungbin/ai-native-sdlc-playbook",
+  "license": "MIT",
+  "keywords": ["sdlc", "playbook", "hooks", "skills", "governance"],
+  "commands": "./.claude/commands",
+  "agents": "./.claude/agents",
+  "skills": "./.claude/skills",
+  "hooks": "./.claude/hooks/hooks.json"
+}

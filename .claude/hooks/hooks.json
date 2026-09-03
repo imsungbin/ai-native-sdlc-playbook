@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/.claude/hooks/production-gate.sh" },
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/.claude/hooks/plan-sync.sh" }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/.claude/hooks/protect-tests.sh" },
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/.claude/hooks/protected-paths.sh" }
+        ]
+      }
+    ]
+  }
+}

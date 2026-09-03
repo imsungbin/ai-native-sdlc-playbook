@@ -1,0 +1,5 @@
+# Paths a Claude Code session may not edit (protected-paths.sh, article Play 3f).
+# One shell glob per line, relative to the project root. Examples:
+#   src/gen/*
+#   v1/*
+#   migrations/*
